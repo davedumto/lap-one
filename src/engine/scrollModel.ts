@@ -54,8 +54,8 @@ export function updateScroll(
     state.S = state.S1 = state.cTarget; st.v = st1.v = 0; state.vS = 0;
     return;
   }
-  state.S1 = smoothDamp(state.S1, state.cTarget, st1, 0.3, dt);
-  state.S = smoothDamp(state.S, state.S1, st, 0.3, dt);
+  state.S1 = smoothDamp(state.S1, state.cTarget, st1, 0.42, dt);
+  state.S = smoothDamp(state.S, state.S1, st, 0.42, dt);
   state.vS = st.v;
   // cruise: when the scroll goes idle the car keeps rolling at a gentle pace instead of freezing
   if (Math.abs(window.scrollY - state.expectedY) > 2) state.idleT = 0; else state.idleT += dt;

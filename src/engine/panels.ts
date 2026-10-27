@@ -75,7 +75,7 @@ export function initPanels(refs: EngineRefs, go: (c: number) => void): PanelsUI 
   const cl = buildCluster(refs.cluster.svg);
   const { mobileGear: mg, mobileSpeed: ms } = refs;
   const mmPg = refs.minimapPathProgress, mmDot = refs.minimapDot, mmD = refs.minimapDistance;
-  let lastGear = '', lastActive = -1;
+  let lastGear = '', lastActive = -1, lastMiniHidden = false;
 
   function update({ c, u, kmh, drive, mm, at, prog, now }: FrameContext) {
     let active = 0;
@@ -139,6 +139,11 @@ export function initPanels(refs: EngineRefs, go: (c: number) => void): PanelsUI 
     mmPg.setAttribute('stroke-dasharray', `${prog.toFixed(4)} 1`);
     const [mx, my] = mm.map(at(u).p); mmDot.setAttribute('cx', mx.toFixed(1)); mmDot.setAttribute('cy', my.toFixed(1));
     mmD.textContent = String(Math.round(u * LENGTH)).padStart(4, '0');
+    // Hide the 2D minimap during the overhead finale (c ~4.55-5): the live 3D camera
+    // already shows the whole circuit from above there, so the corner map is redundant
+    // and, on narrow viewports, was colliding with the wrapped header.
+    const miniHidden = c > 4.4;
+    if (miniHidden !== lastMiniHidden) { lastMiniHidden = miniHidden; refs.minimapEl.classList.toggle('ov-hide', miniHidden); }
   }
   return { update };
 }

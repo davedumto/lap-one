@@ -34,6 +34,7 @@ export interface EngineRefs {
   cluster: ClusterRefs;
   mobileGear: HTMLElement;
   mobileSpeed: HTMLElement;
+  minimapEl: HTMLElement;
   minimapPathBg: SVGPathElement;
   minimapPathProgress: SVGPathElement;
   minimapDot: SVGCircleElement;

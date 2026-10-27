@@ -11,11 +11,13 @@ export interface AudioEngine {
   dispose: () => void;
 }
 
+const MUSIC_TRACK_URL = '/audio/music.mp3';
+
 // Physical-ish V8: every cylinder firing is a noisy exhaust burst + low thump, fed through resonant exhaust pipes (feedback combs).
 // Firing rate of a 4-stroke V8 = rpm / 15 Hz; uneven firing intervals give the cross-plane burble.
 export function createAudio(): AudioEngine {
   let ctx: AudioContext | null = null, on = false, shutting = false, musicOn = false;
-  let musicBus: GainNode, comp: DynamicsCompressorNode, mTimer: ReturnType<typeof setInterval> | null = null, master: GainNode;
+  let musicBus: GainNode, comp: DynamicsCompressorNode, master: GainNode;
   const eng: { node?: ScriptProcessorNode; out?: GainNode; body?: BiquadFilterNode; wl?: BiquadFilterNode } = {};
   let noiseBuf: AudioBuffer, tyreG: GainNode, windG: GainNode, popBus: GainNode, lastPop = 0;
   const T = (p: AudioParam, v: number, t = 0.05) => p.setTargetAtTime(v, ctx!.currentTime, t);
@@ -68,7 +70,6 @@ export function createAudio(): AudioEngine {
     comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 5; comp.attack.value = 0.004; comp.release.value = 0.18;
     master.connect(comp); comp.connect(ctx.destination);
     musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(comp);
-    mDelay();
     eng.node = engineNode();
     eng.out = ctx.createGain(); eng.out.gain.value = 0.4;
     eng.body = ctx.createBiquadFilter(); eng.body.type = 'peaking'; eng.body.frequency.value = 160; eng.body.gain.value = 4; eng.body.Q.value = 0.9;
@@ -84,68 +85,34 @@ export function createAudio(): AudioEngine {
     popBus = ctx.createGain(); popBus.gain.value = 1; popBus.connect(master);
   }
 
-  // ---- background trap loop, fully synthesized (140 bpm, F minor): 808 bass, clap, hats with rolls, dark plucks, pad
-  let dly: DelayNode, mNext = 0, mStep = 0;
-  function mDelay() {
-    dly = ctx!.createDelay(1); dly.delayTime.value = (60 / 140) * 0.75;
-    const fb = ctx!.createGain(); fb.gain.value = 0.34;
-    const lpf = ctx!.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 2200;
-    const wet = ctx!.createGain(); wet.gain.value = 0.5;
-    dly.connect(lpf); lpf.connect(fb); fb.connect(dly); lpf.connect(wet); wet.connect(musicBus);
-  }
-  const ROOTS = [43.65, 34.65 * 2, 38.89 * 2, 43.65];            // per bar (808 sits an octave up for small speakers on Db/Eb)
-  const MEL = [[698.5, 523.3, 415.3, 523.3, 622.3, 523.3, 415.3, 349.2], [554.4, 415.3, 349.2, 415.3, 523.3, 415.3, 349.2, 277.2], [622.3, 466.2, 392, 466.2, 587.3, 466.2, 392, 311.1], [698.5, 523.3, 415.3, 523.3, 784, 698.5, 523.3, 415.3]];
-  const PAD = [[174.6, 207.7, 261.6], [138.6, 174.6, 207.7], [155.6, 196, 233.1], [174.6, 207.7, 261.6]];
-  const nz = (t: number, dur: number, f0: number, type: BiquadFilterType, g: number, dest?: AudioNode | null, q = 0.7) => {
-    const s = ctx!.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 1;
-    const fl = ctx!.createBiquadFilter(); fl.type = type; fl.frequency.value = f0; fl.Q.value = q; const e = ctx!.createGain();
-    e.gain.setValueAtTime(g, t); e.gain.exponentialRampToValueAtTime(0.0008, t + dur);
-    s.connect(fl); fl.connect(e); e.connect(dest || musicBus); s.start(t, Math.random() * 1.4, dur + 0.02);
-  };
-  function k808(t: number, f: number, len: number) {
-    const o = ctx!.createOscillator(), g = ctx!.createGain(); o.type = 'sine';
-    o.frequency.setValueAtTime(f * 3.2, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.06);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.95, t + 0.006); g.gain.setTargetAtTime(0.0, t + len * 0.55, len * 0.22);
-    const sh = ctx!.createWaveShaper(), cu = new Float32Array(256); for (let i = 0; i < 256; i++) cu[i] = Math.tanh(((i / 127.5) - 1) * 1.8); sh.curve = cu;
-    o.connect(sh); sh.connect(g); g.connect(musicBus); o.start(t); o.stop(t + len + 0.2);
-  }
-  function pluck(t: number, f: number, g0: number) {
-    const o = ctx!.createOscillator(), o2 = ctx!.createOscillator(), fl = ctx!.createBiquadFilter(), g = ctx!.createGain();
-    o.type = 'triangle'; o2.type = 'sine'; o.frequency.value = f; o2.frequency.value = f * 2.004;
-    fl.type = 'lowpass'; fl.frequency.setValueAtTime(3000, t); fl.frequency.exponentialRampToValueAtTime(500, t + 0.3);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(g0, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.5);
-    o.connect(fl); o2.connect(fl); fl.connect(g); g.connect(musicBus); g.connect(dly); o.start(t); o2.start(t); o.stop(t + 0.55); o2.stop(t + 0.55);
-  }
-  function pad(t: number, notes: number[], len: number) {
-    notes.forEach((f, i) => {
-      [-6, 6].forEach((dd) => {
-        const o = ctx!.createOscillator(), fl = ctx!.createBiquadFilter(), g = ctx!.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = dd + i;
-        fl.type = 'lowpass'; fl.frequency.value = 520; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.022, t + 0.5); g.gain.linearRampToValueAtTime(0, t + len);
-        o.connect(fl); fl.connect(g); g.connect(musicBus); o.start(t); o.stop(t + len + 0.05);
-      });
-    });
-  }
-  function mSched() {
-    if (!ctx || !musicOn) return;
-    const SPB = 60 / 140 / 4;
-    while (mNext < ctx.currentTime + 0.18) {
-      const bar = Math.floor(mStep / 16) % 4, st16 = mStep % 16, t = mNext;
-      const r = ROOTS[bar];
-      if (st16 === 0) { k808(t, r, 0.95); pad(t, PAD[bar], SPB * 16); }
-      if (st16 === 6) k808(t, r, 0.28);
-      if (st16 === 10) k808(t, r * (bar === 3 ? 1.5 : 1), 0.4);
-      if (st16 === 14 && bar % 2) k808(t, r * 1.335, 0.2);
-      if (st16 === 0 || st16 === 10) nz(t, 0.03, 1800, 'bandpass', 0.18);
-      if (st16 === 8) { nz(t, 0.16, 1500, 'bandpass', 0.55, null, 0.9); nz(t + 0.012, 0.14, 1900, 'bandpass', 0.4, null, 0.9); nz(t, 0.18, 220, 'lowpass', 0.25); }
-      // hats: steady 16ths with accents, 32nd rolls and a triplet burst
-      const acc = [1, .35, .6, .35, .8, .35, .6, .4, 1, .35, .6, .35, .8, .4, .6, .4][st16];
-      nz(t, 0.035, 8200, 'highpass', 0.16 * acc);
-      if (st16 === 12 && bar % 2 === 0) nz(t, 0.22, 7600, 'highpass', 0.1);
-      if (bar % 2 && st16 >= 12) nz(t + SPB / 2, 0.03, 8200, 'highpass', 0.1);
-      if (bar === 1 && st16 === 6) { nz(t + SPB / 3, 0.03, 8200, 'highpass', 0.1); nz(t + 2 * SPB / 3, 0.03, 8200, 'highpass', 0.1); }
-      if (st16 % 2 === 0 && Math.random() > 0.18) { const f = MEL[bar][st16 / 2]; pluck(t, f, 0.075 + (st16 % 4 === 0 ? 0.03 : 0)); }
-      mNext += SPB; mStep++;
+  // ---- background music: a licensed/user-supplied track, decoded once and looped
+  // through the same musicBus (and its gain fades) the synthesized trap loop used.
+  let musicBuffer: AudioBuffer | null = null;
+  let musicSource: AudioBufferSourceNode | null = null;
+  let musicLoadPromise: Promise<AudioBuffer> | null = null;
+
+  async function loadMusicBuffer(): Promise<AudioBuffer> {
+    if (musicBuffer) return musicBuffer;
+    if (!musicLoadPromise) {
+      musicLoadPromise = fetch(MUSIC_TRACK_URL)
+        .then((r) => r.arrayBuffer())
+        .then((buf) => ctx!.decodeAudioData(buf))
+        .then((decoded) => { musicBuffer = decoded; return decoded; });
     }
+    return musicLoadPromise;
+  }
+
+  function startMusicSource(buffer: AudioBuffer) {
+    if (musicSource) { try { musicSource.stop(); } catch { /* already stopped */ } }
+    musicSource = ctx!.createBufferSource();
+    musicSource.buffer = buffer;
+    musicSource.loop = true;
+    musicSource.connect(musicBus);
+    musicSource.start();
+  }
+
+  function stopMusicSource() {
+    if (musicSource) { try { musicSource.stop(); } catch { /* already stopped */ } musicSource = null; }
   }
 
   function pop(g = 0.6, f = 380) {
@@ -163,8 +130,18 @@ export function createAudio(): AudioEngine {
     music(v: boolean) {
       if (v && !ctx) build();
       if (!ctx) return;
-      if (v) { ctx.resume(); if (!musicOn) { musicOn = true; mNext = ctx.currentTime + 0.08; mStep = 0; } T(musicBus.gain, 0.5, 0.5); if (!mTimer) mTimer = setInterval(mSched, 30); }
-      else { musicOn = false; T(musicBus.gain, 0, 0.25); setTimeout(() => { if (!musicOn && mTimer) { clearInterval(mTimer); mTimer = null; } }, 1500); }
+      if (v) {
+        ctx.resume();
+        if (!musicOn) {
+          musicOn = true;
+          loadMusicBuffer().then((buffer) => { if (musicOn) startMusicSource(buffer); });
+        }
+        T(musicBus.gain, 0.5, 0.5);
+      } else {
+        musicOn = false;
+        T(musicBus.gain, 0, 0.25);
+        setTimeout(() => { if (!musicOn) stopMusicSource(); }, 1500);
+      }
     },
     hold(h: boolean) { if (!ctx) return; if (h) ctx.suspend(); else if (on || musicOn || shutting) ctx.resume(); },
     enable(v: boolean) {
@@ -213,7 +190,7 @@ export function createAudio(): AudioEngine {
     },
     dispose() {
       disposed = true; shutting = false;
-      if (mTimer) { clearInterval(mTimer); mTimer = null; }
+      stopMusicSource();
       if (ctx) { ctx.close().catch(() => {}); ctx = null; }
     },
   };
