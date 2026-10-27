@@ -7,5 +7,7 @@ dist/
 lap-project/node_modules/
 lap-project/dist/
 music.mp4
-public/audio/
 tsconfig.tsbuildinfo
+.env*.local
+.vercel/
+
