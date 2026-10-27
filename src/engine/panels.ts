@@ -7,10 +7,6 @@ const ENTER = 0.3, EXIT = 0.24;
 const SECN = ['Start', 'Shape', 'Air', 'Brake', 'Night', 'Flag'];
 const CT = [0, 1.0, 2.3, 3.2, 4.2, 5];
 
-interface WordSpan {
-  i: HTMLElement;
-}
-
 interface PanelState {
   el: HTMLElement;
   copy: HTMLElement;
@@ -81,7 +77,7 @@ export function initPanels(refs: EngineRefs, go: (c: number) => void): PanelsUI 
   const mmPg = refs.minimapPathProgress, mmDot = refs.minimapDot, mmD = refs.minimapDistance;
   let lastGear = '', lastActive = -1;
 
-  function update({ c, mob: _mob, u, kmh, drive, mm, at, prog, now }: FrameContext) {
+  function update({ c, u, kmh, drive, mm, at, prog, now }: FrameContext) {
     let active = 0;
     panels.forEach((p, i) => {
       const [a, b] = WIN[i];

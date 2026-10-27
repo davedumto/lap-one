@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { at, TRACK_W, LENGTH } from './track';
+import { at, TRACK_W } from './track';
 
 // ---- wind tunnel streamlines (car-local space, +x forward; air flows toward -x)
 const HX: [number, number][] = [[-2.4, .45], [-2.1, 1.25], [-1.5, 1.0], [-0.7, 1.0], [0.1, 1.12], [0.9, .88], [1.7, .55], [2.45, .22]];
@@ -11,6 +11,7 @@ function hAt(x: number): number {
 }
 
 export interface StreamLines extends THREE.LineSegments {
+  material: THREE.ShaderMaterial;
   userData: { paths: number[][][]; M: number };
 }
 
@@ -59,6 +60,7 @@ export function buildStreams(): StreamLines {
 }
 
 export interface WarpLines extends THREE.LineSegments {
+  material: THREE.LineBasicMaterial;
   userData: { update: (carP: THREE.Vector3, t: THREE.Vector3, r: THREE.Vector3, speed01: number, dt: number, v: number) => void };
 }
 
@@ -134,7 +136,7 @@ export interface StartLights {
 // ---- start gantry with 5 lights (at u ahead of the start line)
 export function buildStartLights(scene: THREE.Scene): StartLights {
   const grp = new THREE.Group(), lamps: THREE.MeshBasicMaterial[] = [];
-  const a = at(0.0095), r = new THREE.Vector3(-a.t.z, 0, a.t.x);
+  const a = at(0.0095);
   grp.position.copy(a.p); grp.rotation.y = a.yaw;
   const dark = new THREE.MeshStandardMaterial({ color: 0x14161b, roughness: 0.6, metalness: 0.6 });
   for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.6, 10.5, 0.6), dark); p.position.set(0, 5.25, s * (TRACK_W / 2 + 2.2)); grp.add(p); }

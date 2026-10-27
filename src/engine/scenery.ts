@@ -61,7 +61,7 @@ export function buildScenery(scene: THREE.Scene, roadGeo: THREE.BufferGeometry):
     gm.renderOrder = 1; scene.add(gm);
   }
   if (kerb.length) {
-    const kt = mkCanvas(64, 128, (x, w, h) => { for (let i = 0; i < 4; i++) { x.fillStyle = i % 2 ? '#f2f2ee' : '#d1342b'; x.fillRect(0, i * 32, w, 32); } });
+    const kt = mkCanvas(64, 128, (x, w) => { for (let i = 0; i < 4; i++) { x.fillStyle = i % 2 ? '#f2f2ee' : '#d1342b'; x.fillRect(0, i * 32, w, 32); } });
     kt.repeat.set(1, 1 / 4);  // uv.y is metres: one stripe pair per 4 m
     const km = new THREE.Mesh(ribbonFrom(kerb, 0.03), new THREE.MeshStandardMaterial({ map: kt, roughness: 0.7, metalness: 0 }));
     km.renderOrder = 3; scene.add(km);
@@ -145,7 +145,7 @@ export function buildScenery(scene: THREE.Scene, roadGeo: THREE.BufferGeometry):
     const strip = new THREE.MeshBasicMaterial({ color: 0xdfe8ff, toneMapped: false });
     hooks.push((nn: number) => { strip.color.set(0xdfe8ff).multiplyScalar(0.4 + 2.4 * nn); });
     for (const u of [0.275, 0.64, 0.83]) {
-      const a = at(u), r = rightOf(a), W = TRACK_W + 16;
+      const a = at(u), W = TRACK_W + 16;
       const g = new THREE.Group(); g.position.copy(a.p); g.rotation.y = a.yaw;
       const deck = new THREE.Mesh(new THREE.BoxGeometry(5, 1.3, W), concrete); deck.position.y = 7.6; g.add(deck);
       const rail = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.0, W), concrete); rail.position.set(2.4, 8.7, 0); const rail2 = rail.clone(); rail2.position.x = -2.4; g.add(rail, rail2);
