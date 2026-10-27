@@ -1,0 +1,20 @@
+{
+  "name": "lap-one",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lap One: scroll-driven 3D GT3 race car film (three.js). Vanilla prototype, to be ported to Next.js.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "three": "0.160.0",
+    "@fontsource/big-shoulders-display": "^5.0.0",
+    "@fontsource/barlow-semi-condensed": "^5.0.0",
+    "@fontsource/saira-condensed": "^5.0.0",
+    "@fontsource/outfit": "^5.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0"
+  }
+}
